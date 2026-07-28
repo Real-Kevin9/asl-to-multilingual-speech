@@ -1,0 +1,13 @@
+Total samples: 204924
+Number of classes: 29
+Mean per class: 7066.3448275862065
+Min per class: 3030
+Max per class: 7758
+Std dev: 800.1076339602829
+Zero-vector (failed) samples: 204924
+Failure percentage: 100.0000
+Samples with NaN: 0
+Unique feature rows: 1
+Duplicate feature rows (repeats count): 204924
+Missing classes in labels: set()
+Extra classes in labels: set()
