@@ -1,0 +1,28 @@
+%% OPTIONAL appendix — recognition path detail only
+%% File: docs/system_architecture_recognition_detail.mmd
+
+flowchart LR
+    IN(["Video frame or clip"])
+
+    subgraph ALPH["Alphabet  per frame"]
+        direction TB
+        A1["Hand crop"]
+        A2["CNN + BiLSTM"]
+        A3["Hold and commit letter"]
+        A1 --> A2 --> A3
+    end
+
+    subgraph WORD["Words  per clip"]
+        direction TB
+        W1["Landmark sequence"]
+        W2["Transformer + TGCN"]
+        W3["Word label"]
+        W1 --> W2 --> W3
+    end
+
+    OUT(["Gloss label"])
+
+    IN --> ALPH
+    IN --> WORD
+    ALPH --> OUT
+    WORD --> OUT

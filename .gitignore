@@ -10,14 +10,56 @@ __pycache__/
 
 # Large data and model files
 data/raw/
+data/processed/
 *.h5
 *.pt
 *.pkl
+*.keras
+*.npy
+*.npz
+*.safetensors
+# Keep tiny sklearn artefacts already in the repo; ignore large trained dumps.
+models/**/*.joblib
+!models/recognition/label_encoder.joblib
+!models/recognition/recognition_model.joblib
+!models/recognition/scaler.joblib
+!models/recognition_test/label_encoder.joblib
+!models/recognition_test/recognition_model.joblib
+!models/recognition_test/scaler.joblib
+
+# Regenerable caches / heavy trained artefacts (see README)
+models/.keras/
+models/.hf/
+models/nlp/t5_gloss_en/
+models/emotion/
+models/emotion_v1/
+models/emotion_v2/
+models/recognition/backup*/
+models/recognition/experts/
+models/recognition/tgcn_wlasl/**/*.pt
+chase_colab_*/
+chase_v4_lowmem_patch/
+colab_wlasl_*/
+wlasl_colab_chase*/
 *.mp3
 *.mp4
 *.zip
 *.tar
 *.gz
+
+# Local assessment PDFs / large report binaries (source stays in study/)
+Assessment_Brief*.pdf
+Final Progress Review Template.pdf
+Reference_report.pdf
+v1.pdf
+
+# LaTeX build junk
+*.aux
+*.bbl
+*.blg
+*.toc
+*.out
+*.synctex.gz
 
 # Environment variables
 .env
@@ -29,3 +71,14 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Web dashboard
+app/web/node_modules/
+app/web/dist/
+
+# Participant data — local only, never commit or share as files.
+logs/usability/
+logs/evaluation/usability_sus.json
+logs/evaluation/usability_public_summary.json
+study/completed_forms/
+**/session_P*.json

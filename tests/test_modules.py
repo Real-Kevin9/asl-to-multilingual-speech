@@ -19,3 +19,5 @@ def test_tts_returns_structured_result(tmp_path):
     assert set(result.keys()) == {"en", "ne"}
     assert result["en"]["text"] == "Hello world."
     assert "prosody" in result["en"]
+    assert "cached" in result["en"]
+    assert "duration_ms" in result["en"]

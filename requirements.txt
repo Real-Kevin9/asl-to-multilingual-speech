@@ -190,3 +190,5 @@ widgetsnbextension==4.0.15
 wrapt==2.1.2
 xxhash==3.7.0
 yarl==1.23.0
+sacrebleu==2.6.0
+accelerate==1.14.0

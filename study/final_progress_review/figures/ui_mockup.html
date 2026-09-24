@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Sign-to-Speech Dashboard Mockup</title>
+<style>
+:root { font-family: "Segoe UI", system-ui, sans-serif; background: #0b1020; color: #e8edf7; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 20px; background: radial-gradient(circle at top, rgba(56,189,248,.12), transparent 35%), #0b1020; width: 1100px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.app-header h1 { margin: 4px 0 0; font-size: 26px; }
+.eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; color: #8ea0c0; }
+.mode-toggle { display: inline-flex; padding: 4px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); }
+.mode-toggle button { border: 0; background: transparent; color: #b8c4dc; padding: 8px 16px; border-radius: 999px; font-size: 13px; }
+.mode-toggle button.active { background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; }
+.dashboard { display: grid; grid-template-columns: 260px 1fr 260px; gap: 14px; }
+.info-panel { background: rgba(15,23,42,.82); border: 1px solid rgba(148,163,184,.18); border-radius: 16px; padding: 14px; }
+.info-panel h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+.info-panel h3.cyan { color: #38bdf8; }
+.info-panel h3.violet { color: #a78bfa; }
+.info-panel h3.green { color: #4ade80; }
+.info-panel h3.amber { color: #fbbf24; }
+.stat { margin-bottom: 10px; }
+.stat__label { display: block; font-size: 11px; color: #8ea0c0; }
+.stat__value { font-size: 15px; }
+.stat__hint { font-size: 11px; color: #94a3b8; }
+.mini-toggle { display: inline-flex; gap: 4px; margin-top: 4px; }
+.mini-toggle button { border: 1px solid rgba(148,163,184,.25); background: transparent; color: #b8c4dc; padding: 4px 10px; border-radius: 8px; font-size: 12px; }
+.mini-toggle button.active { background: #2563eb; color: white; border-color: #2563eb; }
+.toggle-row { margin-bottom: 12px; }
+.camera-panel { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid rgba(148,163,184,.2); background: #111827; min-height: 340px; }
+.camera-panel img { width: 100%; height: 340px; object-fit: cover; display: block; }
+.camera-badge { position: absolute; top: 12px; left: 12px; background: rgba(34,197,94,.9); color: #052e16; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.camera-bbox { position: absolute; border: 2px solid #38bdf8; border-radius: 8px; left: 28%; top: 18%; width: 44%; height: 55%; box-shadow: 0 0 0 1px rgba(56,189,248,.3); }
+.action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.primary-btn { background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; border: 0; padding: 10px 18px; border-radius: 10px; font-size: 14px; }
+.ghost-btn { background: rgba(255,255,255,.06); color: #e8edf7; border: 1px solid rgba(148,163,184,.25); padding: 10px 16px; border-radius: 10px; font-size: 14px; }
+.speech-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; }
+.muted { font-size: 12px; color: #94a3b8; margin: 0; }
+</style>
+</head>
+<body>
+<div class="app-header">
+  <div>
+    <p class="eyebrow">ASL to multilingual speech</p>
+    <h1>Sign → Speech</h1>
+  </div>
+  <div class="mode-toggle">
+    <button class="active">Sign → Speech</button>
+    <button>Speech → Sign</button>
+  </div>
+</div>
+<div class="dashboard">
+  <div>
+    <div class="info-panel"><h3 class="cyan">Recognition</h3>
+      <div class="toggle-row"><span class="stat__label">Input</span>
+        <div class="mini-toggle"><button>Alphabet</button><button class="active">Words</button></div>
+      </div>
+      <div class="stat"><span class="stat__label">Last word</span><strong class="stat__value">drink</strong><span class="stat__hint">78% confidence</span></div>
+      <div class="stat"><span class="stat__label">Backend</span><strong class="stat__value">wlasl_landmarks</strong></div>
+      <div class="stat"><span class="stat__label">Committed words</span><strong class="stat__value">drink water</strong></div>
+    </div>
+    <div class="info-panel" style="margin-top:14px"><h3 class="violet">Pipeline</h3>
+      <div class="toggle-row"><span class="stat__label">Webcam NLP</span>
+        <div class="mini-toggle"><button>Rules</button><button class="active">T5</button></div>
+      </div>
+      <div class="stat"><span class="stat__label">NLP</span><strong class="stat__value">t5_gloss</strong></div>
+      <div class="stat"><span class="stat__label">Emotion</span><strong class="stat__value">emotion_cnn</strong></div>
+      <div class="stat"><span class="stat__label">TTS</span><strong class="stat__value">gtts_cached</strong></div>
+    </div>
+  </div>
+  <div>
+    <div class="camera-panel">
+      <img src="sample_recognition_crop.jpg" alt="webcam"/>
+      <div class="camera-badge">Live</div>
+      <div class="camera-bbox"></div>
+    </div>
+    <div class="action-row" style="margin-top:12px">
+      <button class="ghost-btn">Clear</button>
+      <button class="primary-btn">Record sign</button>
+      <button class="primary-btn">Finish &amp; speak</button>
+    </div>
+  </div>
+  <div>
+    <div class="info-panel"><h3 class="green">Output</h3>
+      <div class="stat"><span class="stat__label">Gloss</span><strong class="stat__value">drink water</strong></div>
+      <div class="stat"><span class="stat__label">English</span><strong class="stat__value">I drink water.</strong></div>
+      <div class="stat"><span class="stat__label">Emotion</span><strong class="stat__value">neutral (0.72)</strong></div>
+      <div class="stat"><span class="stat__label">Latency</span><strong class="stat__value">814 ms</strong></div>
+    </div>
+    <div class="info-panel" style="margin-top:14px"><h3 class="amber">Speech</h3>
+      <div class="speech-row"><span>EN</span><button class="ghost-btn">Play</button></div>
+      <div class="speech-row"><span>NE</span><button class="ghost-btn">Play</button></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

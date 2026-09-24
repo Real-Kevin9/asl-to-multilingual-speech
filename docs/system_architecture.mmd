@@ -1,0 +1,63 @@
+%% ASL Multilingual Speech — System Architecture
+%% Preview: https://mermaid.live (paste entire file)
+
+flowchart TB
+    CAM(["Webcam input"])
+
+    subgraph CLIENT[" Web client "]
+        UI["React dashboard"]
+        MODES["Alphabet  or  Words"]
+        UI --- MODES
+    end
+
+    subgraph API[" API layer "]
+        WS["WebSocket sign-to-speech"]
+        SESS["RealtimeSession"]
+        WS --> SESS
+    end
+
+    subgraph PIPE[" Processing pipeline "]
+        direction LR
+
+        MP["1 MediaPipe<br/>landmarks"]
+
+        subgraph REC["2 Recognition"]
+            direction TB
+            ALPH["Alphabet<br/>hybrid_user"]
+            WORD["Words<br/>WLASL ensemble"]
+        
+
+        GLOSS["3 Gloss<br/>assembly"]
+        NLP["4 NLP<br/>T5 or rules"]
+        EMO["5 Emotion<br/>prosody"]
+        TTS["6 TTS<br/>EN + Nepali"]
+
+        MP --> ALPH
+        MP --> WORD
+        ALPH --> GLOSS
+        WORD --> GLOSS
+        GLOSS --> NLP
+        NLP --> TTS
+        EMO --> TTS
+    end
+
+    OUT(["Audio output<br/>English and Nepali"])
+
+    subgraph SUPPORT[" Batch and evaluation "]
+        direction TB
+        CLI["demo.py"]
+        BATCH["ASLPipeline"]
+        EVAL["evaluate_all.py"]
+        CLI --> BATCH
+        BATCH --> EVAL
+    end
+
+    CAM --> UI
+    UI <-->|live frames| WS
+    SESS --> MP
+    CAM -.-> EMO
+    TTS --> OUT
+    OUT --> UI
+
+    SESS -.->|"same modules"| BATCH
+    EVAL -.->|"metrics"| PIPE

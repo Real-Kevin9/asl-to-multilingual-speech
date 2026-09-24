@@ -9,6 +9,7 @@ from pathlib import Path
 repo_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(repo_root))
 
+from modules.recognition.registry import BACKENDS
 from pipeline.input import PipelineInput
 from pipeline.prototype import PrototypePipeline
 
@@ -61,6 +62,7 @@ def _print_result(result: dict) -> None:
 
     print("\n--- SUMMARY ---")
     print(f"  Mode     : {result.get('input_mode')}")
+    print(f"  Backend  : {result.get('recognition_backend')}")
     print(f"  Gloss    : {result.get('gloss')!r}")
     print(f"  English  : {result.get('english')!r}")
     print(f"  Emotion  : {result.get('emotion')}")
@@ -89,6 +91,12 @@ def main() -> None:
     parser.add_argument("--face-image", type=str, default=None)
     parser.add_argument("--languages", nargs="+", default=["en", "ne"])
     parser.add_argument("--use-nlp-model", action="store_true")
+    parser.add_argument(
+        "--backend",
+        choices=BACKENDS,
+        default="auto",
+        help="Recognition backend: auto prefers the hybrid model, then CNN+LSTM, then the MLP.",
+    )
     parser.add_argument("--json", action="store_true", help="Print raw JSON instead of formatted output.")
     args = parser.parse_args()
 
@@ -110,7 +118,9 @@ def main() -> None:
             sys.exit(1)
         inp = PipelineInput.from_images(paths, face_image=args.face_image)
 
-    with PrototypePipeline(use_nlp_model=args.use_nlp_model) as proto:
+    with PrototypePipeline(
+        use_nlp_model=args.use_nlp_model, recognition_backend=args.backend
+    ) as proto:
         result = proto.run(inp, languages=tuple(args.languages))
 
     if args.json:

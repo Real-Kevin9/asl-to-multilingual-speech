@@ -15,7 +15,12 @@ class RecognitionPredictor:
     Wraps the classifier, the feature scaler, and the label encoder produced by
     :class:`RecognitionTrainer` so that inference applies the exact same
     normalization pipeline used during training.
+
+    This is the landmark (MLP) backend. It is kept alongside the CNN+LSTM
+    backend as a lightweight, CPU-friendly fallback.
     """
+
+    backend_name = "landmark_mlp"
 
     def __init__(
         self,
@@ -59,6 +64,25 @@ class RecognitionPredictor:
             label = str(pred)
 
         return {"pred_index": pred, "label": label, "confidence": confidence}
+
+    def predict_frame(
+        self,
+        image_path: Optional[str] = None,
+        bgr_image: Optional[np.ndarray] = None,
+        landmarks: Optional[np.ndarray] = None,
+    ) -> dict:
+        """Uniform per-frame interface shared with the CNN+LSTM backend.
+
+        This backend only needs the landmark vector; ``image_path`` and
+        ``bgr_image`` are accepted so callers can treat both backends alike.
+        """
+        if landmarks is None:
+            raise ValueError("RecognitionPredictor requires landmarks")
+
+        result = self.predict(landmarks)
+        result["hand_detected"] = bool(np.any(landmarks))
+        result["backend"] = self.backend_name
+        return result
 
 
 def load_recognition_model(

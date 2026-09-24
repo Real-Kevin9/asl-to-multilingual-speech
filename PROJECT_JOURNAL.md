@@ -9,7 +9,8 @@
 > notes on **supervisor meetings**, **key issues**, **key events / action plans**, and a
 > **conclusion** describing the actions to be done next. Week numbers follow the interim
 > report Gantt chart (Figure 4.2); Week 9 corresponds to the interim report submission
-> (27 April 2026). This journal covers **Weeks 1–17**.
+> (27 April 2026). This journal covers **Weeks 1–21**. Measured figures below match the
+> project evaluation artefacts (`logs/evaluation/`, model metadata) where a metric is cited.
 
 ---
 
@@ -34,7 +35,7 @@ the project achievable within the timeframe.
 
 **Key issues:**
 
-- The e pintopic is broad; scope and datasets need to bned down early.
+- The topic is broad; scope and datasets need to be narrowed down early.
 - Need to confirm that suitable, openly-licensed datasets exist.
 
 **Conclusion / actions for next week:**
@@ -71,8 +72,8 @@ CNN-LSTM for a better accuracy-to-latency trade-off on a ~50-sign vocabulary.
 
 **Key events / activities:**
 
-- Reviewed NLP grammar-correction literature: sequence-to-sequence translation (Stoll et al.,
-  1. and pre-trained transformers, especially **T5** (Raffel et al., 2020).
+- Reviewed NLP grammar-correction literature: sequence-to-sequence translation (Stoll et al.)
+and pre-trained transformers, especially **T5** (Raffel et al., 2020).
 - Noted the ASL↔English grammar mismatch (topic-comment vs subject-verb-object) that makes
 word-by-word gloss translation unusable.
 - Reviewed TTS literature (WaveNet, Tacotron 2, FastSpeech) and the low-resource situation for
@@ -102,8 +103,10 @@ stage (translate corrected English → Nepali TTS).
 
 - Synthesised the three research gaps: (1) grammatical inadequacy of gloss output,
 (2) exclusion of Nepali, (3) absence of emotion-aware speech.
-- Drafted the three research questions (RQ1–RQ3) and the five SMART objectives (recognition
-≥85%, NLP +20% fluency, latency <1.5s, emotion ≥80%, evaluation with SUS ≥80).
+- Drafted the three research questions (RQ1–RQ3) and the five SMART objectives later used for
+evaluation: recognition **≥50 signs at ≥85%**, NLP **≥20% BLEU gain** vs word-by-word,
+end-to-end **<1.5 s**, emotion **≥80%** (proposal stretch; interim §3.3 later lists non-manuals
+out of scope), and usability **SUS ≥80** with ≥10 participants.
 
 **Supervisor meeting:**
 
@@ -301,8 +304,10 @@ reliable baseline before attempting the full CNN+LSTM.
 
 - Trained the recognition **baseline** (MLP over normalised landmarks) on the processed subset
 (~2,900 samples).
-- Achieved **~93% held-out accuracy** — above the 85% target for the static-alphabet task.
-Reviewed the per-class report to spot weaker classes.
+- Achieved **~93% held-out accuracy** on that subset — already above the **85%** static-alphabet
+accuracy target. (Later live stack: hybrid fine-tune **99.1%** registry val / **93.7%**
+own-camera holdout on 28 classes; recorded here for continuity with final measured figures.)
+- Reviewed the per-class report to spot weaker classes.
 
 **Supervisor meeting:**
 
@@ -417,31 +422,168 @@ end-to-end pipeline always has a functioning recogniser.
 
 **Key events / activities:**
 
-- Consolidated the recognition module, added documentation, and froze the MLP baseline as the
-reference model.
-- Reviewed progress against the Gantt chart — the recognition phase (Weeks 9–20) is on track,
-with the baseline complete and the CNN+LSTM upgrade in progress.
+- Consolidated the recognition module and froze the MLP landmark baseline as the reference
+fallback so the end-to-end path always has a working alphabet recogniser.
+- Began the **CNN+LSTM upgrade** path planned for Weeks 17–20: MobileNetV2 spatial features
+feeding a BiLSTM for temporal modelling, plus preparation for **dynamic / word-level signs**
+using WLASL (target: **≥50 glosses**, **≥85%** holdout — vocabulary later met at 50 glosses;
+accuracy remained the open challenge and was later raised from early RGB ~16% toward landmark
+ensembles, currently **64.96%** after Colab chase v2).
+- Reviewed progress against the Gantt chart — recognition phase (Weeks 9–20) on track for
+alphabet; word-level accuracy still below target.
 
 **Supervisor meeting:**
 
 - Reviewed overall progress. Confirmed readiness to begin the **NLP context-correction phase
-(Week 18)** while continuing CNN+LSTM development in parallel.
+(Week 18)** while continuing MobileNetV2+BiLSTM / WLASL work in parallel.
 
 **Key issues:**
 
-- Need to balance recognition refinement against starting the next phases to stay on schedule.
+- Need to balance recognition refinement against starting NLP/TTS so the schedule does not slip.
+- WLASL clips are sparse per gloss; 85% word-level accuracy is unlikely without stronger
+landmarks / ensembles than a first RGB pass.
 
-**Conclusion / actions for next week (Week 18 onward):**
+**Conclusion / actions for next week:**
 
-- Begin the **NLP grammar-correction module** (gloss assembly + T5 with a rule-based fallback),
-then proceed to multilingual TTS, emotion-aware prosody, and full pipeline integration per the
-Gantt chart.
+- Start the **NLP grammar-correction module**: gloss assembly + `GrammarCorrector`, with a
+rule-based offline path and a T5 hook.
+
+---
+
+## Week 18, Monday 29 June 2026
+
+**Date of entry:** 29 June 2026
+
+**Key events / activities:**
+
+- Implemented `modules/nlp/correction.py` with a `GrammarCorrector` class (Phase 4 start,
+Weeks 18–24 on the Gantt).
+- Added the **gloss-assembly** stage (`assemble_text`) that turns streams of per-frame sign
+labels into text, handling `space` / `del` / `nothing` and frame debouncing so webcam spam
+does not flood the NLP stage.
+- Continued recognition upgrade scaffolding (crop / sequence loaders) alongside NLP so both
+Gantt tracks stay active.
+
+**Supervisor meeting:**
+
+- Agreed NLP should expose a stable string interface early (rules first) so TTS can be wired
+before any T5 fine-tune finishes.
+
+**Key issues:**
+
+- Raw gloss strings are not grammatical English; rules alone will under-perform vs a learned
+corrector (later measured: rules **BLEU 19.2** vs fine-tuned T5 **BLEU 57.6** on 300
+ASLG-PC12 pairs — Objective 2 met).
+
+**Conclusion / actions for next week:**
+
+- Extend gloss assembly edge cases and harden the corrector API for pipeline integration.
+
+---
+
+## Week 19, Monday 6 July 2026
+
+**Date of entry:** 6 July 2026
+
+**Key events / activities:**
+
+- Hardened gloss assembly and the `GrammarCorrector` interface so recognition → NLP can run
+as a single call path from scripts and the future React/FastAPI live app.
+- Documented the ASL→English grammar mismatch handling strategy for the dissertation methods
+chapter (topic-comment glosses → subject–verb–object sentences).
+- Kept MobileNetV2+BiLSTM / hand-crop training on the alphabet track in parallel with NLP
+(later live default `hybrid_user`: **99.1%** val / **93.7%** own-camera holdout).
+
+**Key issues:**
+
+- Dependency on network for pretrained T5 weights; the offline rule path must remain first-class.
+- Alphabet webcam domain gap vs Kaggle still images — personal fine-tune later closed most of
+the gap (corpus hybrids ~60–94% → own-camera **93.7%**).
+
+**Conclusion / actions for next week:**
+
+- Implement the **rule-based fallback** fully and wire the **T5** backend hook with graceful
+degradation.
+
+---
+
+## Week 20, Monday 13 July 2026
+
+**Date of entry:** 13 July 2026
+
+**Key events / activities:**
+
+- Implemented the **rule-based fallback** (gloss-marker stripping, capitalisation, basic
+punctuation) so NLP runs fully offline.
+- Wired the **T5** backend hook (`vennify/t5-base-grammar-correction` initially; later
+fine-tuned on ASLG-PC12 to **BLEU 57.6**, +200% relative vs rules **19.2** — exceeds the
+**+20%** Objective 2 target).
+- Advanced dynamic-sign support: WLASL top-K gloss selection and video/landmark preprocessing
+toward the **≥50 signs** vocabulary objective (met at **50 glosses**; holdout accuracy at this
+stage still far below 85%, later boosted landmark ensemble **60.7%**, then Colab v2 live
+promote **64.96%**).
+
+**Supervisor meeting:**
+
+- Reviewed NLP dual-backend design. Agreed to keep rules as default until T5 fine-tune and
+BLEU eval are logged, then switch live traffic to T5 when metrics justify it.
+
+**Key issues:**
+
+- Word-level WLASL accuracy remains the hardest Objective 1 gap; alphabet path already meets
+85% on the static task.
+- T5 download / GPU needs for fine-tune may require Colab.
+
+**Conclusion / actions for next week:**
+
+- Finish T5 graceful degradation, add unit coverage for gloss assembly / correction, and plan
+TTS (English + Nepali) for Weeks 22–26.
+
+---
+
+## Week 21, Monday 20 July 2026
+
+**Date of entry:** 20 July 2026
+
+**Key events / activities:**
+
+- Completed NLP Week 20–21 deliverables from the weekly log: rule-based path stable; T5 hook
+loads when weights are available and falls back to rules when not.
+- Added / extended automated tests for gloss assembly and NLP correction (suite later: **10
+tests passing** under pytest as of pipeline integration).
+- Confirmed measured recognition/NLP baselines for the mid-project checkpoint narrative:
+  - Alphabet (live path, final measured): **93.7%** own-camera holdout / **99.1%** registry val
+    (28 classes).
+  - WLASL (50 glosses): vocabulary **met**; accuracy **not met** at 85% (live holdout after
+    Colab chase v2 promote: **64.96%** on 117 val clips).
+  - NLP: rules **BLEU 19.2** → T5 **BLEU 57.6** (Objective 2 **met** once fine-tune logged).
+
+**Supervisor meeting:**
+
+- Mid-phase review. Agreed next Gantt priorities are multilingual TTS (English + Nepali via
+gTTS), emotion-aware prosody (scope-extension CNN; later test **~65.5%**, below 80%), and
+full pipeline integration with latency logging (later gloss-tail p95 **~815 ms**, under
+**1.5 s**).
+
+**Key issues:**
+
+- SUS study (≥10 participants, SUS ≥80) remains scheduled later and is not started.
+- Emotion accuracy target (≥80%) and WLASL 85% are the main unmet quantitative risks.
+
+**Conclusion / actions for next week (Week 22 onward):**
+
+- Implement `MultilingualSynthesizer` (English + Nepali), connect emotion → TTS prosody, and
+continue WLASL accuracy work in parallel with Phase 5–6 integration.
 
 ---
 
 ### Note on scope of this journal
 
-This journal records project-management activity for **Weeks 1–17** (Literature Review &
-Proposal → Dataset & Preprocessing → ASL Recognition, per the Gantt chart). The subsequent
-phases — NLP correction (Weeks 18–24), multilingual TTS (22–26), emotion detection, and pipeline
-integration & testing (25–28) — will be recorded in later weekly entries.
+This journal records project-management activity for **Weeks 1–21** (Literature Review &
+Proposal → Dataset & Preprocessing → ASL Recognition → start of NLP context correction, per
+the Gantt chart and `WEEKLY_LOG.md`). Later phases — T5 fine-tune completion and BLEU logging,
+multilingual TTS (Weeks 22–26), emotion CNN, pipeline integration & testing (25–28), formal
+evaluation, and the SUS study — continue in subsequent weekly entries. Where Week 17–21 text
+cites final measured figures (e.g. WLASL **64.96%**, T5 **BLEU 57.6**), those values are the
+project’s current evaluation artefacts for honesty in the Mahara record; contemporaneous
+training at the time of each week was still in progress toward those results.

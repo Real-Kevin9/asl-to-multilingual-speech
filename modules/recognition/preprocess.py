@@ -135,6 +135,36 @@ class ASLPreprocessor:
         # Fallback for unknown backend
         return np.zeros(63, dtype=np.float32)
 
+    def extract_landmarks_from_array(self, bgr_image: np.ndarray) -> np.ndarray:
+        """Extract hand landmarks directly from an in-memory BGR frame.
+
+        Used by the live webcam path so frames do not have to be written to a
+        temporary file first.
+
+        Returns:
+            Flattened 63-float vector, or zeros when no hand is detected.
+        """
+        if self.backend != "mediapipe_tasks" or bgr_image is None:
+            return np.zeros(63, dtype=np.float32)
+
+        try:
+            import mediapipe as mp
+
+            rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+            image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+            result = self.landmarker.detect(image)
+
+            if not result.hand_landmarks:
+                return np.zeros(63, dtype=np.float32)
+
+            coords: List[float] = []
+            for landmark in result.hand_landmarks[0]:
+                coords.extend([landmark.x, landmark.y, landmark.z])
+            return np.array(coords, dtype=np.float32)
+        except Exception as exc:
+            print(f"Warning: Failed to extract landmarks from frame: {exc}")
+            return np.zeros(63, dtype=np.float32)
+
     def close(self) -> None:
         """Release the MediaPipe landmarker.
 

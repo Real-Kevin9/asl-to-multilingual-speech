@@ -65,17 +65,21 @@ class ASLPipeline:
 
     def __init__(
         self,
-        recognition_model_path: str = "models/recognition/recognition_model.joblib",
-        scaler_path: str = "models/recognition/scaler.joblib",
-        encoder_path: str = "models/recognition/label_encoder.joblib",
+        model_dir: str = "models/recognition",
+        recognition_backend: str = "auto",
         hand_model_path: str = "models/recognition/hand_landmarker.task",
         emotion_model_path: Optional[str] = None,
         use_nlp_model: bool = False,
         tts_output_dir: str = "logs/tts",
     ):
-        self.recognition_model_path = recognition_model_path
-        self.scaler_path = scaler_path
-        self.encoder_path = encoder_path
+        """
+        Args:
+            model_dir: Directory containing the recogniser artefacts.
+            recognition_backend: ``auto`` (prefer MobileNetV2+BiLSTM, fall back to
+                the landmark MLP), ``cnn_lstm``, or ``landmark_mlp``.
+        """
+        self.model_dir = model_dir
+        self.recognition_backend = recognition_backend
         self.hand_model_path = hand_model_path if Path(hand_model_path).exists() else None
         self.emotion_model_path = emotion_model_path
         self.use_nlp_model = use_nlp_model
@@ -99,14 +103,17 @@ class ASLPipeline:
     @property
     def predictor(self):
         if self._predictor is None:
-            from modules.recognition.model import RecognitionPredictor
+            from modules.recognition.registry import create_recognizer
 
-            self._predictor = RecognitionPredictor(
-                model_path=self.recognition_model_path,
-                scaler_path=self.scaler_path,
-                encoder_path=self.encoder_path,
+            self._predictor = create_recognizer(
+                backend=self.recognition_backend, model_dir=self.model_dir
             )
         return self._predictor
+
+    @property
+    def backend_name(self) -> str:
+        """Name of the active recognition backend."""
+        return getattr(self.predictor, "backend_name", "unknown")
 
     @property
     def corrector(self):
@@ -138,15 +145,33 @@ class ASLPipeline:
             self._preprocessor.close()
 
     # -- stages -------------------------------------------------------------------
-    def recognize(self, image_paths: Sequence[str]) -> Dict[str, Any]:
+    def recognize(
+        self,
+        image_paths: Sequence[str],
+        landmarks_list: Optional[Sequence[Any]] = None,
+    ) -> Dict[str, Any]:
+        """Recognise one sign per input frame.
+
+        Args:
+            image_paths: Ordered frame paths.
+            landmarks_list: Optional precomputed landmark vectors (one per frame).
+                Passing them avoids running MediaPipe twice when the caller has
+                already extracted landmarks.
+        """
         labels: List[str] = []
         confidences: List[Optional[float]] = []
-        for path in image_paths:
-            landmarks = self.preprocessor.extract_landmarks(str(path))
-            pred = self.predictor.predict(landmarks)
+
+        for idx, path in enumerate(image_paths):
+            if landmarks_list is not None and idx < len(landmarks_list):
+                landmarks = landmarks_list[idx]
+            else:
+                landmarks = self.preprocessor.extract_landmarks(str(path))
+
+            pred = self.predictor.predict_frame(image_path=str(path), landmarks=landmarks)
             labels.append(pred["label"])
             confidences.append(pred["confidence"])
-        return {"labels": labels, "confidences": confidences}
+
+        return {"labels": labels, "confidences": confidences, "backend": self.backend_name}
 
     def process(
         self,
@@ -184,11 +209,19 @@ class ASLPipeline:
         timings["emotion_ms"] = (time.perf_counter() - t) * 1000
 
         t = time.perf_counter()
-        speech = (
-            self.synthesizer.synthesize(english, prosody=emo["prosody"], languages=languages)
-            if english
-            else {}
-        )
+        if english:
+            speech, tts_timings = self.synthesizer.synthesize(
+                english,
+                prosody=emo["prosody"],
+                languages=languages,
+                return_timings=True,
+            )
+            timings["tts_translation_ms"] = tts_timings.get("translation_ms")
+            timings["tts_en_ms"] = tts_timings.get("en_ms")
+            timings["tts_ne_ms"] = tts_timings.get("ne_ms")
+            timings["tts_cache_hits"] = tts_timings.get("cache_hits")
+        else:
+            speech = {}
         timings["tts_ms"] = (time.perf_counter() - t) * 1000
 
         timings["total_ms"] = (time.perf_counter() - t0) * 1000

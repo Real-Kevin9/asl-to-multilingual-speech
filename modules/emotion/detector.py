@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 
@@ -12,6 +13,9 @@ except ImportError:  # pragma: no cover
 
 # Emotion classes targeted by the project (proposal objective 4).
 EMOTIONS = ["happy", "sad", "angry", "neutral"]
+
+DEFAULT_MODEL_PATH = "models/emotion/emotion_model.keras"
+DEFAULT_METADATA_PATH = "models/emotion/emotion_metadata.json"
 
 # Maps each emotion to text-to-speech prosody multipliers. These are consumed
 # by the TTS module to modulate pitch and speaking rate.
@@ -30,21 +34,23 @@ ImageLike = Union[str, "np.ndarray"]
 class EmotionDetector:
     """Facial-expression classifier for TTS prosody modulation.
 
-    This is the outline/skeleton implementation. It performs real face
-    detection with an OpenCV Haar cascade, and exposes a classifier hook:
+    Uses OpenCV Haar cascades for face detection, then a trained Keras CNN
+    (48×48 grayscale → softmax over ``EMOTIONS``) when
+    ``models/emotion/emotion_model.keras`` is present.
 
-    * If a trained emotion model is provided via ``model_path`` and can be
-      loaded (Keras ``.h5``/``.keras``), it is used for classification.
-    * Otherwise it falls back to returning ``neutral`` (still reporting whether
-      a face was found), so the end-to-end pipeline always runs.
-
-    The interface (:meth:`detect`) is stable, so the fallback can later be
-    swapped for a trained CNN without touching the rest of the pipeline.
+    If the model is missing or no face is found, returns ``neutral`` so the
+    end-to-end pipeline always runs.
     """
 
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        metadata_path: Optional[str] = None,
+        auto_load: bool = True,
+    ):
         self.model = None
         self.backend = "fallback_neutral"
+        self.class_names: List[str] = list(EMOTIONS)
         self._face_cascade = None
 
         if cv2 is not None:
@@ -52,15 +58,25 @@ class EmotionDetector:
             if cascade_path.exists():
                 self._face_cascade = cv2.CascadeClassifier(str(cascade_path))
 
-        if model_path and Path(model_path).exists():
-            self._try_load_model(model_path)
+        path = model_path
+        if path is None and auto_load and Path(DEFAULT_MODEL_PATH).exists():
+            path = DEFAULT_MODEL_PATH
+        meta_path = metadata_path or DEFAULT_METADATA_PATH
+        if path and Path(path).exists():
+            self._try_load_model(path, meta_path)
 
-    def _try_load_model(self, model_path: str) -> None:
+    def _try_load_model(self, model_path: str, metadata_path: str) -> None:
         try:
             from tensorflow import keras  # type: ignore
 
             self.model = keras.models.load_model(model_path)
             self.backend = "keras"
+            meta_file = Path(metadata_path)
+            if meta_file.exists():
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                names = meta.get("emotions")
+                if isinstance(names, list) and names:
+                    self.class_names = list(names)
         except Exception as exc:  # pragma: no cover - dependency dependent
             print(f"[emotion] Could not load model {model_path} ({exc}); using fallback.")
             self.model = None
@@ -84,11 +100,22 @@ class EmotionDetector:
         x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
         return gray[y:y + h, x:x + w]
 
+    def _classify_face(self, face_gray: "np.ndarray") -> tuple[str, float]:
+        inp = cv2.resize(face_gray, (48, 48)).astype("float32") / 255.0
+        inp = inp.reshape(1, 48, 48, 1)
+        proba = self.model.predict(inp, verbose=0)[0]
+        idx = int(np.argmax(proba))
+        if idx < len(self.class_names):
+            emotion = self.class_names[idx]
+        else:
+            emotion = "neutral"
+        return emotion, float(np.max(proba))
+
     def detect(self, image: ImageLike) -> Dict[str, object]:
         """Return the detected emotion for a face image.
 
-        Returns a dict with ``emotion``, ``confidence``, ``face_found`` and the
-        matching ``prosody`` parameters.
+        Returns a dict with ``emotion``, ``confidence``, ``face_found``,
+        ``backend`` and the matching ``prosody`` parameters.
         """
         bgr = self._read_image(image)
         face = self._detect_face(bgr) if bgr is not None else None
@@ -99,12 +126,7 @@ class EmotionDetector:
 
         if self.model is not None and face_found:
             try:
-                inp = cv2.resize(face, (48, 48)).astype("float32") / 255.0
-                inp = inp.reshape(1, 48, 48, 1)
-                proba = self.model.predict(inp, verbose=0)[0]
-                idx = int(np.argmax(proba))
-                emotion = EMOTIONS[idx] if idx < len(EMOTIONS) else "neutral"
-                confidence = float(np.max(proba))
+                emotion, confidence = self._classify_face(face)
             except Exception as exc:  # pragma: no cover
                 print(f"[emotion] inference failed ({exc}); defaulting to neutral.")
                 emotion = "neutral"
@@ -113,6 +135,7 @@ class EmotionDetector:
             "emotion": emotion,
             "confidence": confidence,
             "face_found": face_found,
+            "backend": self.backend,
             "prosody": EMOTION_PROSODY.get(emotion, EMOTION_PROSODY["neutral"]),
         }
 

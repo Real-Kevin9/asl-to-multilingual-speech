@@ -36,8 +36,13 @@ class PrototypePipeline:
         use_nlp_model: bool = False,
         tts_output_dir: str = "logs/tts",
         eval_log_dir: str = "logs/evaluation",
+        recognition_backend: str = "auto",
     ):
-        self._core = ASLPipeline(use_nlp_model=use_nlp_model, tts_output_dir=tts_output_dir)
+        self._core = ASLPipeline(
+            use_nlp_model=use_nlp_model,
+            tts_output_dir=tts_output_dir,
+            recognition_backend=recognition_backend,
+        )
         self._evaluator = EvaluationRunner(log_dir=eval_log_dir)
 
     def close(self) -> None:
@@ -90,27 +95,35 @@ class PrototypePipeline:
         if inp.mode in ("images", "spell") and inp.image_paths:
             t = time.perf_counter()
             landmarks_list = []
+            hands_found = 0
             for path in inp.image_paths:
                 lm = self._core.preprocessor.extract_landmarks(path)
-                landmarks_list.append(lm.tolist())
+                landmarks_list.append(lm)
+                if lm is not None and lm.any():
+                    hands_found += 1
             if landmarks_list:
-                landmarks_preview = landmarks_list[0][:6]  # first 6 floats as preview
+                landmarks_preview = [round(float(v), 4) for v in landmarks_list[0][:6]]
             phases.append(self._phase(
                 "preprocessing", "ok",
                 {"frames": len(inp.image_paths)},
-                {"landmark_dim": 63, "sample_preview": landmarks_preview},
+                {
+                    "landmark_dim": 63,
+                    "hands_detected": f"{hands_found}/{len(inp.image_paths)}",
+                    "sample_preview": landmarks_preview,
+                },
                 (time.perf_counter() - t) * 1000,
             ))
             timings["preprocessing_ms"] = phases[-1]["duration_ms"]
 
             t = time.perf_counter()
-            rec = self._core.recognize(inp.image_paths)
+            # Reuse the landmarks extracted above instead of running MediaPipe twice.
+            rec = self._core.recognize(inp.image_paths, landmarks_list=landmarks_list)
             labels = rec["labels"]
             confidences = rec["confidences"]
             phases.append(self._phase(
                 "recognition", "ok",
-                {"frames": len(inp.image_paths)},
-                {"labels": labels, "confidences": confidences},
+                {"frames": len(inp.image_paths), "backend": rec.get("backend")},
+                {"labels": labels, "confidences": confidences, "backend": rec.get("backend")},
                 (time.perf_counter() - t) * 1000,
             ))
             timings["recognition_ms"] = phases[-1]["duration_ms"]
@@ -160,10 +173,19 @@ class PrototypePipeline:
 
         # --- Phase 6: TTS ---
         t = time.perf_counter()
-        speech = (
-            self._core.synthesizer.synthesize(english, prosody=emo["prosody"], languages=languages)
-            if english else {}
-        )
+        if english:
+            speech, tts_timings = self._core.synthesizer.synthesize(
+                english,
+                prosody=emo["prosody"],
+                languages=languages,
+                return_timings=True,
+            )
+            timings["tts_translation_ms"] = tts_timings.get("translation_ms")
+            timings["tts_en_ms"] = tts_timings.get("en_ms")
+            timings["tts_ne_ms"] = tts_timings.get("ne_ms")
+            timings["tts_cache_hits"] = tts_timings.get("cache_hits")
+        else:
+            speech = {}
         phases.append(self._phase(
             "tts", "ok" if english else "empty",
             {"english": english, "languages": list(languages), "prosody": emo["prosody"]},
@@ -176,6 +198,10 @@ class PrototypePipeline:
 
         pipeline_result = {
             "input_mode": inp.mode,
+            "recognition_backend": (
+                self._core.backend_name if inp.mode in ("images", "spell") and inp.image_paths
+                else "n/a"
+            ),
             "recognized_labels": labels,
             "confidences": confidences,
             "gloss": gloss,
